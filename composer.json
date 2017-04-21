@@ -1,0 +1,26 @@
+{
+  "name" : "fqt/db-core-managerbundle",
+  "description" : "Database core manager",
+  "type" : "symfony-bundle",
+  "license": "MIT",
+  "authors" : [{
+    "name" : "Hugo Fouquet",
+    "email" : "hugo.fouquet@epita.fr",
+    "role": "Developer"
+  }],
+  "keywords" : [
+    "Database manager", "Core manager"
+  ],
+  "require" : {
+    "php" : ">=5.6.0",
+    "symfony/framework-bundle" : ">=3.0",
+    "twig/twig" : "*",
+    "doctrine/doctrine-bundle" : "*"
+  },
+  "autoload" : {
+    "psr-0" : {
+      "FQT\\DBCoreManagerBundle" : ""
+    }
+  },
+  "target-dir" : "FQT/DBCoreManagerBundle"
+}

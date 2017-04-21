@@ -1,0 +1,4 @@
+services:
+#    fqtdb_core_manager.example:
+#        class: FQT\DBCoreManagerBundle\Example
+#        arguments: ["@service_id", "plain_value", "%parameter%"]
