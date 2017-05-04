@@ -4,6 +4,10 @@ services:
         class: FQT\DBCoreManagerBundle\Checker\EntityManager
         arguments: [ "@doctrine.orm.entity_manager", "@security.authorization_checker", "@security.token_storage", "%db_manager.views%","%fqtdb_core_manager.entities%" ]
 
+    fqt.dbcm.manager.action:
+        class: FQT\DBCoreManagerBundle\Checker\ActionManager
+        arguments: [ "@doctrine.orm.entity_manager", "@fqt.dbcm.checker", "@form.factory", "@event_dispatcher" ]
+
     fqt.dbcm.exception.listener:
         class: FQT\DBCoreManagerBundle\Event\Listener\ExceptionListener
         arguments: [ "@twig", "%kernel.environment%" ]
