@@ -59,95 +59,88 @@ class ActionManager
     }
 
     public function customAction(Request $request, $method, $name, $id) {
-        $execution = $this->defaultAction($request, $method, $name, $id);
-        if ($execution != null)
-            return $execution;
 
-        $eInfo = $this->checker->getEntity($name, $method);
-        $entityObject = $this->checker->getEntityObject($eInfo, $method, $id);
+        $entityInfo = $this->checker->getEntity($name, $method);
+        $action = $entityInfo["methods"][$method];
 
-        $methodInfo = $eInfo['methods'][$method];
-        $service = $this->container->get($methodInfo['service']);
-        $methodName = $methodInfo['method'];
-        $data = $service->$methodName($entityObject);
+        $data = $this->defaultAction($request, $method, $entityInfo, $id);
+        if ($data == null) {
+            $entityObject = $this->checker->getEntityObject($entityInfo, $method, $id);
+
+            $service = $this->container->get($action['service']);
+            $methodName = $action['method'];
+            $data = $service->$methodName($entityObject);
+        }
+
         return array(
-            "success" => null,
-            "entityInfo" => $eInfo,
-            "form" => null,
+            "entityInfo" => $entityInfo,
             "data" => $data
         );
     }
 
     /**
-     * @param $name
+     * @param $eInfo
      * @return array
      */
-    public function listAction($name)
+    public function listAction($eInfo)
     {
-        $eInfo = $this->checker->getEntity($name, Conf::PERM_LIST);
         $all = $this->checker->getEntityObject($eInfo);
         return array(
-            "success" => null,
-            "entityInfo" => $eInfo,
-            "form" => null,
-            "data" => $all
+            "success" => true,
+            "all" => $all
         );
     }
 
     /**
      * @param Request $request
-     * @param $name
+     * @param $eInfo
      * @param $id
      * @return array|null
      */
-    public function editAction(Request $request, $name, $id)
+    public function editAction(Request $request, $eInfo, $id)
     {
-        $eInfo = $this->checker->getEntity($name, Conf::PERM_EDIT);
-
         $all = $this->checker->getEntityObject($eInfo);
-        $entityObject = $this->checker->getEntityObject($eInfo, Conf::PERM_EDIT, $id);
+        $entityObject = $this->checker->getEntityObject($eInfo, Conf::DEF_EDIT, $id);
         if (!$entityObject)
             return null;
         $process = $this->processForm($request, $eInfo, $entityObject);
         return array(
             "success" => $process["success"],
-            "entityInfo" => $eInfo,
-            "form" => $process["form"],
-            "data" => $all
+            "form" => $process["form"]->createView(),
+            "all" => $all,
+            "flash" => $process["flash"]
         );
     }
 
     /**
      * @param Request $request
-     * @param $name
+     * @param $eInfo
      * @return array
      */
-    public function addAction(Request $request, $name)
+    public function addAction(Request $request, $eInfo)
     {
-        $eInfo = $this->checker->getEntity($name, Conf::PERM_ADD);
-        $this->checker->checkObjectPermission($eInfo, null, Conf::PERM_ADD);
-
+        $this->checker->checkObjectPermission($eInfo, null, Conf::DEF_ADD);
         $process = $this->processAddForm($request, $eInfo);
         return array(
             "success" => $process["success"],
-            "entityInfo" => $eInfo,
-            "form" => $process["form"],
-            "data" => null
+            "form" => $process["form"]->createView(),
+            "flash" => $process["flash"]
         );
     }
 
-    public function removeAction($name, $id)
+    public function removeAction($eInfo, $id)
     {
         $event = null;
-        $eInfo = $this->checker->getEntity($name, Conf::PERM_REMOVE);
         $entityObject = $this->checker->getEntityObject($eInfo, Conf::PERM_REMOVE, $id);
-        if ($entityObject)
+        if ($entityObject) {
             $event = $this->executeAction($eInfo, $entityObject, false);
+            $flash = array(array("type" => 'success', "message" => 'Supprimé !'));
+        } else
+            $flash = array(array("type" => 'error', "message" => 'Not found'));
         return array(
             "success" => $entityObject != null,
-            "entityInfo" => $eInfo,
-            "form" => null,
-            "data" => $event
+            "event" => $event,
+            "flash" => $flash
         );
     }
 
@@ -169,19 +162,19 @@ class ActionManager
      * Execute action if it's a default
      * @param Request $request
      * @param $method
-     * @param $name
+     * @param $entityInfo
      * @param $id
      * @return array|null
      */
-    private function defaultAction(Request $request, $method, $name, $id) {
+    private function defaultAction(Request $request, $method, $entityInfo, $id) {
         if ($method == Conf::DEF_LIST)
-            return $this->listAction($name);
+            return $this->listAction($entityInfo);
         elseif ($method == Conf::DEF_ADD)
-            return $this->addAction($request, $name);
+            return $this->addAction($request, $entityInfo);
         elseif ($method == Conf::PERM_EDIT)
-            return $this->editAction($request, $name, $id);
+            return $this->editAction($request, $entityInfo, $id);
         elseif ($method == Conf::DEF_REMOVE)
-            return $this->removeAction($name, $id);
+            return $this->removeAction($entityInfo, $id);
         return null;
     }
 
@@ -198,12 +191,16 @@ class ActionManager
             $this->executeAction($eInfo, $entityObject);
             return array(
                 "success" => true,
-                "form" => $form
+                "form" => $form,
+                "flash" => array(
+                    array("type" => 'success', "message" => 'Modification enregistré')
+                )
             );
         }
         return array(
             "success" => false,
-            "form" => $form
+            "form" => $form,
+            "flash" => array()
         );
     }
 

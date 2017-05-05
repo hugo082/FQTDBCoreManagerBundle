@@ -40,7 +40,7 @@ class FQTDBCoreManagerExtension extends Extension
     private function loadMethods(array &$config, ContainerBuilder $container)
     {
         foreach ($config['methods']['content'] as $name => $values) {
-
+            $values["isDefault"] = false;
             if (in_array($name, Conf::DEFAULT_METHODS))
                 throw new \Exception("Impossible to custom method '".$name."'. This is a default method.");
 
@@ -86,7 +86,7 @@ class FQTDBCoreManagerExtension extends Extension
                 $values['access_details'] = NULL;
 
             // ==
-            if (isset($values['methods'])) {
+            if (isset($values['methods'])) { // TODO: Methods not optionnal
                 $methods = array();
                 foreach ($values['methods'] as $method) {
                     if (array_key_exists($method, $config['methods']['content']))
