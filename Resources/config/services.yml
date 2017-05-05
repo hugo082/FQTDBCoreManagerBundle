@@ -6,7 +6,7 @@ services:
 
     fqt.dbcm.manager.action:
         class: FQT\DBCoreManagerBundle\Checker\ActionManager
-        arguments: [ "@doctrine.orm.entity_manager", "@fqt.dbcm.checker", "@form.factory", "@event_dispatcher" ]
+        arguments: [ "@service_container" ]
 
     fqt.dbcm.exception.listener:
         class: FQT\DBCoreManagerBundle\Event\Listener\ExceptionListener

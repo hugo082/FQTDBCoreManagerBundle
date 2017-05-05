@@ -43,12 +43,11 @@ class EntityManager
             throw new NotFoundException($name);
 
         $eInfo = $this->entities[$name];
-        if (!$eInfo['permissions'][$action])
+        if (!(key_exists($action, $eInfo['permissions']) and $eInfo['permissions'][$action]))
             throw new NotAllowedException($eInfo);
         if (!$this->entityAccess($eInfo, $action))
             throw new NotAllowedException($eInfo);
 
-        $eInfo['displayElements'] = $this->getDisplayPermissions($eInfo, $action);
         return $eInfo;
     }
 
@@ -137,28 +136,6 @@ class EntityManager
     }
 
     /**
-     * Compute current displayable elements for entity / user / action
-     * WARNING : don't check $eInfo['permissions'][$action]
-     * @param array $entity
-     * @param string $action
-     * @return array
-     */
-    private function getDisplayPermissions(array $entity, string $action) {
-        $formAction = ($action == Conf::PERM_LIST) ? Conf::PERM_ADD : $action;
-        return array(
-            Conf::DISP_ELEM_FORM => array(
-                'full' => $full = $this->settings[$action][Conf::DISP_ELEM_FORM] && $this->entityAccess($entity, $formAction),
-                Conf::DISP_ELEM_ADDLINK => !$full and $entity['permissions'][$formAction] && $formAction != $action && $this->entityAccess($entity, $formAction)
-            ),
-            Conf::DISP_ELEM_LIST => array(
-                'full' => $full = $this->settings[$action][Conf::DISP_ELEM_LIST] and $this->entityAccess($entity, Conf::PERM_LIST),
-                Conf::DISP_ELEM_EDITLINK => $full and $entity['permissions'][Conf::PERM_EDIT] and $this->entityAccess($entity, Conf::PERM_EDIT),
-                Conf::DISP_ELEM_REMOVELINK => $full and $entity['permissions'][Conf::PERM_REMOVE] and $this->entityAccess($entity, Conf::PERM_REMOVE)
-            )
-        );
-    }
-
-    /**
      * Check if current user have access to $entity with entityInfo
      * @param $entity
      * @param $action
@@ -175,8 +152,8 @@ class EntityManager
             return false;
         } elseif ($entity['access'] != NULL)
             return $this->grantedRoles($entity['access']);
-        foreach (Conf::PERMISSIONS as $perm) {
-            if ($entity['permissions'][$perm])
+        foreach ($entity['permissions'] as $method => $perm) {
+            if ($perm)
                 return true;
         }
         return false;

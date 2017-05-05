@@ -19,11 +19,32 @@ class Configuration implements ConfigurationInterface
     public const PERM_LIST = 'list';
     public const PERMISSIONS = array(Configuration::PERM_ADD, Configuration::PERM_EDIT, Configuration::PERM_REMOVE, Configuration::PERM_LIST);
 
+    public const DEF_ADD = 'add';
+    public const DEF_EDIT = 'edit';
+    public const DEF_REMOVE = 'remove';
+    public const DEF_LIST = 'list';
+    public const DEFAULT_METHODS = array(Configuration::DEF_ADD, Configuration::DEF_EDIT, Configuration::DEF_REMOVE, Configuration::DEF_LIST);
+
     public const DISP_ELEM_FORM = 'form';
     public const DISP_ELEM_LIST = 'list';
     public const DISP_ELEM_ADDLINK = 'addLink';
     public const DISP_ELEM_REMOVELINK = 'removeLink';
     public const DISP_ELEM_EDITLINK = 'editLink';
+
+    public const ENV_GLOBAL = 'global';
+    public const ENV_OBJECT = 'object';
+
+    static public function getDefaultMethodInformation($name) {
+        if ($name == self::DEF_ADD)
+            return array("fullName" => "Ajouter", "environment" => self::ENV_GLOBAL);
+        elseif ($name == self::DEF_EDIT)
+            return array("fullName" => "Editer", "environment" => self::ENV_OBJECT);
+        elseif ($name == self::DEF_REMOVE)
+            return array("fullName" => "Supprimer", "environment" => self::ENV_OBJECT);
+        elseif ($name == self::DEF_LIST)
+            return array("fullName" => "Lister", "environment" => self::ENV_GLOBAL);
+        return array();
+    }
 
     /**
      * {@inheritdoc}
@@ -34,7 +55,7 @@ class Configuration implements ConfigurationInterface
         $rootNode = $treeBuilder->root('fqtdb_core_manager');
 
         $this->addEntitiesSection($rootNode);
-        //$this->addViewsSection($rootNode);
+        $this->addMethodsSection($rootNode);
 
         return $treeBuilder;
     }
@@ -42,25 +63,26 @@ class Configuration implements ConfigurationInterface
     /**
      * @param ArrayNodeDefinition $node
      */
-    private function addViewsSection(ArrayNodeDefinition $node)
+    private function addMethodsSection(ArrayNodeDefinition $node)
     {
         $node
             ->children()
-                ->arrayNode('views')
-                    ->addDefaultsIfNotSet()
+                ->arrayNode('methods')
                     ->canBeUnset()
                     ->children()
-                        ->scalarNode('indexView')->defaultValue('DBManagerBundle:Manage:index.html.twig')->end() // Auto
-                        ->arrayNode('list')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->booleanNode(Configuration::DISP_ELEM_FORM)->defaultTrue()->end()
-                            ->end()
-                        ->end()
-                        ->arrayNode('edit')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->booleanNode(Configuration::DISP_ELEM_LIST)->defaultTrue()->end()
+                        ->scalarNode('service')->isRequired()->cannotBeEmpty()->end()
+                        ->arrayNode('content')
+                            ->prototype('array')->addDefaultsIfNotSet()
+                                ->children()
+                                    ->scalarNode('fullName')->end()
+                                    ->scalarNode('service')->end()
+                                    ->scalarNode('method')->isRequired()->cannotBeEmpty()->end()
+                                    ->scalarNode('view')->end()
+                                    ->enumNode('environment')
+                                        ->isRequired()->cannotBeEmpty()
+                                        ->values(array(self::ENV_GLOBAL, self::ENV_OBJECT))
+                                    ->end()
+                                ->end()
                             ->end()
                         ->end()
                     ->end()
@@ -94,12 +116,7 @@ class Configuration implements ConfigurationInterface
                             ->scalarNode('formView')->defaultValue('DBManagerBundle:Manage:form.html.twig')->end() // Auto
                             ->scalarNode('mainView')->defaultValue('DBManagerBundle:Manage:entity.html.twig')->end() // Auto
                             ->scalarNode('listingMethod')->defaultNull()->end() // Auto
-                            ->arrayNode('permissions')
-                                ->defaultValue(Configuration::PERMISSIONS)
-                                ->prototype('enum')
-                                    ->values(Configuration::PERMISSIONS)
-                                ->end()
-                            ->end()
+
                             ->arrayNode('access')
                                 ->beforeNormalization()
                                     ->ifString()
@@ -107,6 +124,15 @@ class Configuration implements ConfigurationInterface
                                 ->end()
                                 ->prototype('scalar')->end()
                             ->end()
+
+                            ->arrayNode('methods')
+                                ->beforeNormalization()
+                                    ->ifString()
+                                    ->then(function ($v) { return array($v); })
+                                ->end()
+                                ->prototype('scalar')->end()
+                            ->end()
+
                             ->arrayNode('access_details')
                                 ->children()
                                     ->scalarNode(Configuration::PERM_ADD.'Method')->defaultNull()->end() // Auto

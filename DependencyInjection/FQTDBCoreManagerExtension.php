@@ -2,10 +2,13 @@
 
 namespace FQT\DBCoreManagerBundle\DependencyInjection;
 
+use Symfony\Component\CssSelector\Exception\InternalErrorException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 use Symfony\Component\DependencyInjection\Loader;
+
+use FQT\DBCoreManagerBundle\DependencyInjection\Configuration as Conf;
 
 /**
  * This is the class that loads and manages your bundle configuration.
@@ -22,35 +25,43 @@ class FQTDBCoreManagerExtension extends Extension
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
-        //$this->loadViews($config, $container);
-        $this->loadEntities($config, $container, Configuration::PERMISSIONS);
+        $this->loadMethods($config, $container);
+        $this->loadEntities($config, $container);
 
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yml');
     }
 
     /**
-     * @param array            $config
+     * @param array $config
      * @param ContainerBuilder $container
+     * @throws \Exception
      */
-    private function loadViews(array $config, ContainerBuilder $container)
+    private function loadMethods(array &$config, ContainerBuilder $container)
     {
-        $config['views'][Configuration::PERM_EDIT][Configuration::DISP_ELEM_FORM] = true;
-        $config['views'][Configuration::PERM_ADD][Configuration::DISP_ELEM_FORM] = true;
-        $config['views'][Configuration::PERM_ADD][Configuration::DISP_ELEM_LIST] = false;
-        $config['views'][Configuration::PERM_LIST][Configuration::DISP_ELEM_LIST] = true;
-        $config['views'][Configuration::PERM_REMOVE][Configuration::DISP_ELEM_FORM] = false;
-        $config['views'][Configuration::PERM_REMOVE][Configuration::DISP_ELEM_LIST] = false;
+        foreach ($config['methods']['content'] as $name => $values) {
 
-        $container->setParameter($this->getAlias().'.views', $config['views']);
+            if (in_array($name, Conf::DEFAULT_METHODS))
+                throw new \Exception("Impossible to custom method '".$name."'. This is a default method.");
+
+            if (!isset($values['service']))
+                $values['service'] = $config['methods']['service'];
+
+            if (!isset($values['fullName']))
+                $values['fullName'] = $name;
+
+            $config['methods']['content'][$name] = $values;
+        }
+        $container->setParameter($this->getAlias().'.methods', $config['methods']);
     }
 
     /**
-     * @param array            $config
+     * @param array $config
      * @param ContainerBuilder $container
-     * @param array            $permissions
+     * @param array $permissions
+     * @throws \Exception
      */
-    private function loadEntities(array $config, ContainerBuilder $container, array $permissions)
+    private function loadEntities(array $config, ContainerBuilder $container)
     {
         foreach ($config['entities'] as $name => $values) {
             $arr = explode(":", $values['fullName'], 2);
@@ -66,10 +77,7 @@ class FQTDBCoreManagerExtension extends Extension
             if (!isset($values['fullFormType']))
                 $values['fullFormType'] = $values['bundle'] . "\\Form\\" . $values['formType'];
 
-            $tmp = array();
-            foreach ($permissions as $p)
-                $tmp[$p] = in_array($p, $values['permissions']);
-            $values['permissions'] = $tmp;
+
 
             if (!isset($values['access']) || empty($values['access']))
                 $values['access'] = NULL;
@@ -77,8 +85,28 @@ class FQTDBCoreManagerExtension extends Extension
             if (!isset($values['access_details']) || empty($values['access_details']))
                 $values['access_details'] = NULL;
 
+            // ==
+            if (isset($values['methods'])) {
+                $methods = array();
+                foreach ($values['methods'] as $method) {
+                    if (array_key_exists($method, $config['methods']['content']))
+                        $methods[$method] = $config['methods']['content'][$method];
+                    elseif (in_array($method, Conf::DEFAULT_METHODS))
+                        $methods[$method] = Conf::getDefaultMethodInformation($method);
+                    else
+                        throw new \Exception("Method '" . $method . "' doesn't exist in ".$values['fullPath'].".");
+                    $values['permissions'][$method] = true; // TODO: Custom method permissions
+                }
+                $values['methods'] = $methods;
+            }
+            // ==
+
             $config['entities'][$name] = $values;
         }
+
+
+
+        #var_dump($config["entities"]); // TODO: Remove me
 
         $container->setParameter($this->getAlias().'.entities', $config['entities']);
     }

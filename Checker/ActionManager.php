@@ -18,6 +18,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface as Dispatcher;
 
+use Symfony\Component\DependencyInjection\ContainerInterface as Container;
+
 use FQT\DBCoreManagerBundle\Checker\EntityManager as Checker;
 use FQT\DBCoreManagerBundle\DependencyInjection\Configuration as Conf;
 use FQT\DBCoreManagerBundle\Event\ActionEvent;
@@ -26,25 +28,61 @@ use FQT\DBCoreManagerBundle\FQTDBCoreManagerEvents as DBCMEvents;
 
 class ActionManager
 {
+    /**
+     * @var ORMManager
+     */
     private $em;
+    /**
+     * @var Checker
+     */
     private $checker;
+    /**
+     * @var FormFactoryInterface
+     */
     private $factory;
+    /**
+     * @var Dispatcher
+     */
     private $dispatcher;
+    /**
+     * @var Container
+     */
+    private $container;
 
-    public function __construct(ORMManager $em, Checker $checker, FormFactoryInterface $formFactory, Dispatcher $dispatcher)
+    public function __construct(Container $container)
     {
-        $this->em = $em;
-        $this->checker = $checker;
-        $this->factory = $formFactory;
-        $this->dispatcher = $dispatcher;
+        $this->em = $container->get('doctrine.orm.entity_manager');
+        $this->checker = $container->get('fqt.dbcm.checker');
+        $this->factory = $container->get('form.factory');
+        $this->dispatcher = $container->get('event_dispatcher');
+        $this->container = $container;
+    }
+
+    public function customAction(Request $request, $method, $name, $id) {
+        $execution = $this->defaultAction($request, $method, $name, $id);
+        if ($execution != null)
+            return $execution;
+
+        $eInfo = $this->checker->getEntity($name, $method);
+        $entityObject = $this->checker->getEntityObject($eInfo, $method, $id);
+
+        $methodInfo = $eInfo['methods'][$method];
+        $service = $this->container->get($methodInfo['service']);
+        $methodName = $methodInfo['method'];
+        $data = $service->$methodName($entityObject);
+        return array(
+            "success" => null,
+            "entityInfo" => $eInfo,
+            "form" => null,
+            "data" => $data
+        );
     }
 
     /**
-     * @param Request $request
      * @param $name
      * @return array
      */
-    public function listAction(Request $request, $name)
+    public function listAction($name)
     {
         $eInfo = $this->checker->getEntity($name, Conf::PERM_LIST);
         $all = $this->checker->getEntityObject($eInfo);
@@ -125,6 +163,26 @@ class ActionManager
     public function processAddForm(Request $request, array $eInfo) {
         $entityObject = new $eInfo['fullPath']();
         return $this->processForm($request, $eInfo, $entityObject);
+    }
+
+    /**
+     * Execute action if it's a default
+     * @param Request $request
+     * @param $method
+     * @param $name
+     * @param $id
+     * @return array|null
+     */
+    private function defaultAction(Request $request, $method, $name, $id) {
+        if ($method == Conf::DEF_LIST)
+            return $this->listAction($name);
+        elseif ($method == Conf::DEF_ADD)
+            return $this->addAction($request, $name);
+        elseif ($method == Conf::PERM_EDIT)
+            return $this->editAction($request, $name, $id);
+        elseif ($method == Conf::DEF_REMOVE)
+            return $this->removeAction($name, $id);
+        return null;
     }
 
     /**
