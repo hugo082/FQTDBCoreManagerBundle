@@ -58,7 +58,6 @@ class FQTDBCoreManagerExtension extends Extension
     /**
      * @param array $config
      * @param ContainerBuilder $container
-     * @param array $permissions
      * @throws \Exception
      */
     private function loadEntities(array $config, ContainerBuilder $container)
@@ -77,15 +76,12 @@ class FQTDBCoreManagerExtension extends Extension
             if (!isset($values['fullFormType']))
                 $values['fullFormType'] = $values['bundle'] . "\\Form\\" . $values['formType'];
 
+            $this->checkArrayContentOfKey($values, "access");
 
+            if ($this->checkArrayContentOfKey($values, "access_details"))
+                $this->loadAccessDetails($values['access_details']);
 
-            if (!isset($values['access']) || empty($values['access']))
-                $values['access'] = NULL;
-
-            if (!isset($values['access_details']) || empty($values['access_details']))
-                $values['access_details'] = NULL;
-
-            // ==
+            // == TODO: Final definition
             if (isset($values['methods'])) { // TODO: Methods not optionnal
                 $methods = array();
                 foreach ($values['methods'] as $method) {
@@ -99,15 +95,23 @@ class FQTDBCoreManagerExtension extends Extension
                 }
                 $values['methods'] = $methods;
             }
-            // ==
-
             $config['entities'][$name] = $values;
         }
 
-
-
-        #var_dump($config["entities"]); // TODO: Remove me
-
         $container->setParameter($this->getAlias().'.entities', $config['entities']);
+    }
+
+    private function loadAccessDetails(array &$accessDetails){
+        foreach ($accessDetails as &$action) {
+            $this->checkArrayContentOfKey($action, "check");
+            $this->checkArrayContentOfKey($action, "roles");
+        }
+    }
+
+    private function checkArrayContentOfKey(array &$array, $key) {
+        if (key_exists($key, $array) && empty($values[$key]))
+            return true;
+        $array[$key] = null;
+        return false;
     }
 }

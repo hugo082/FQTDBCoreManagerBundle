@@ -14,6 +14,8 @@
 namespace FQT\DBCoreManagerBundle\Checker;
 
 use Doctrine\ORM\EntityManager as ORMManager;
+use Symfony\Component\Config\Definition\Exception\Exception;
+use Symfony\Component\DependencyInjection\ContainerInterface as Container;
 use Symfony\Component\Security\Core\Authorization\AuthorizationChecker;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use FQT\DBCoreManagerBundle\DependencyInjection\Configuration as Conf;
@@ -23,17 +25,38 @@ use FQT\DBCoreManagerBundle\Exception\NotAllowedException;
 
 class EntityManager
 {
+    /**
+     * @var AuthorizationChecker
+     */
     private $context;
+    /**
+     * @var TokenStorage
+     */
     private $token;
-    private $settings;
-    private $entities;
+    /**
+     * @var ORMManager
+     */
     private $em;
+    /**
+     * @var Container
+     */
+    private $container;
+    /**
+     * @var array
+     */
+    private $settings;
+    /**
+     * @var array
+     */
+    private $entities;
 
-    public function __construct(ORMManager $em, AuthorizationChecker $context, TokenStorage $token, array $settings, array $entities)
+    public function __construct(Container $container, array $settings, array $entities)
     {
-        $this->em = $em;
-        $this->context = $context;
-        $this->token = $token;
+        $this->em = $container->get('doctrine.orm.entity_manager');
+        $this->context = $container->get('security.authorization_checker');
+        $this->token = $container->get('security.token_storage');
+        $this->container = $container;
+
         $this->settings = $settings;
         $this->entities = $entities;
     }
@@ -126,13 +149,38 @@ class EntityManager
     /**
      * @param array $eInfo
      * @param $obj
-     * @param string $action
+     * @param string $actionId
      * @return bool
      */
-    private function getObjectPermission(array $eInfo, $obj, string $action) {
-        if (($m = $eInfo['access_details'][$action.'Method']) == NULL)
+    private function getObjectPermission(array $eInfo, $obj, string $actionId) {
+        var_dump($eInfo);
+        if ($eInfo["access_details"] == null)
             return true;
-        return $m($this->getUser(), $obj);
+        $accessDetails = $this->getAccessDetailsOfMethod($eInfo["access_details"], $actionId);
+        $action = $eInfo['methods'][$actionId];
+        $check = $this->getObjectCheckPermission($accessDetails, $action, $obj);
+        $roles = $action["roles"] == null || $this->grantedRoles($action["roles"]);
+        return $check && $roles;
+    }
+
+    /**
+     * Check result of custom method permission if it's defined.
+     * @param array $accessDetails
+     * @param array $action
+     * @param $obj
+     * @return bool
+     */
+    private function getObjectCheckPermission(array $accessDetails, array $action, $obj){
+        if (($methodName = $accessDetails["check"]) == NULL)
+            return true;
+        if ($action["isDefault"])
+            throw new Exception('Impossible to define a custom check for default method.');
+        $service = $this->container->get($action['service']);
+        $methodName = $action['method'];
+        $isAuthorise = $service->$methodName($obj);
+        if (is_bool($isAuthorise) === false)
+            throw new Exception('check method of access details must return a boolean.');
+        return $isAuthorise;
     }
 
     /**
@@ -142,18 +190,26 @@ class EntityManager
      * @return bool
      */
     private function entityAccess($entity, $action = NULL) {
-        if ($entity['access_details'] != NULL) {
-            if ($action != NULL)
-                return $this->grantedRoles($entity['access_details'][$action]);
-            foreach (Conf::PERMISSIONS as $perm) {
-                if ($this->grantedRoles($entity['access_details'][$perm]))
-                    return true;
-            }
-            return false;
-        } elseif ($entity['access'] != NULL)
+        if ($entity['access_details'] != NULL)
+            return $action != NULL && $this->grantedAccessDetails($entity['access_details'], $action);
+        elseif ($entity['access'] != NULL)
             return $this->grantedRoles($entity['access']);
         foreach ($entity['permissions'] as $method => $perm) {
             if ($perm)
+                return true;
+        }
+        return false;
+    }
+
+    /**
+     * Check if current user is granted at least one of roles for $method
+     * @param array $accessDetails
+     * @param $method
+     * @return bool
+     */
+    private function grantedAccessDetails(array $accessDetails, $method) {
+        if (($action = $this->getAccessDetailsOfMethod($accessDetails, $method)) != null) {
+            if ($action["roles"] != null && $this->grantedRoles($action["roles"]))
                 return true;
         }
         return false;
@@ -170,6 +226,20 @@ class EntityManager
                 return true;
         }
         return false;
+    }
+
+    /**
+     * Get access details of method
+     * @param array $accessDetails
+     * @param $method
+     * @return mixed|null
+     */
+    private function getAccessDetailsOfMethod(array $accessDetails, $method) {
+        foreach ($accessDetails as $action) {
+            if ($method == $action["method"])
+                return $action;
+        }
+        return null;
     }
 
     /**

@@ -2,7 +2,7 @@ services:
 
     fqt.dbcm.checker:
         class: FQT\DBCoreManagerBundle\Checker\EntityManager
-        arguments: [ "@doctrine.orm.entity_manager", "@security.authorization_checker", "@security.token_storage", "%db_manager.views%","%fqtdb_core_manager.entities%" ]
+        arguments: [ "@service_container", "%db_manager.views%","%fqtdb_core_manager.entities%" ]
 
     fqt.dbcm.manager.action:
         class: FQT\DBCoreManagerBundle\Checker\ActionManager
