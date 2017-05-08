@@ -36,13 +36,13 @@ class Configuration implements ConfigurationInterface
 
     static public function getDefaultMethodInformation($name) {
         if ($name == self::DEF_ADD)
-            return array("isDefault" => true, "fullName" => "Ajouter", "environment" => self::ENV_GLOBAL);
+            return array("isDefault" => true, "id" => self::DEF_ADD, "fullName" => "Ajouter", "environment" => self::ENV_GLOBAL);
         elseif ($name == self::DEF_EDIT)
-            return array("isDefault" => true, "fullName" => "Editer", "environment" => self::ENV_OBJECT, "view" => "DBManagerBundle:Manage:entity.html.twig");
+            return array("isDefault" => true, "id" => self::DEF_EDIT, "fullName" => "Editer", "environment" => self::ENV_OBJECT, "view" => "DBManagerBundle:Manage:entity.html.twig");
         elseif ($name == self::DEF_REMOVE)
-            return array("isDefault" => true, "fullName" => "Supprimer", "environment" => self::ENV_OBJECT);
+            return array("isDefault" => true, "id" => self::DEF_REMOVE, "fullName" => "Supprimer", "environment" => self::ENV_OBJECT);
         elseif ($name == self::DEF_LIST)
-            return array("isDefault" => true, "fullName" => "Lister", "environment" => self::ENV_GLOBAL);
+            return array("isDefault" => true, "id" => self::DEF_LIST, "fullName" => "Lister", "environment" => self::ENV_GLOBAL);
         return array();
     }
 

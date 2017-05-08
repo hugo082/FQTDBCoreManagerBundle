@@ -120,12 +120,13 @@ class EntityManager
      * Check if current user can execute action on object
      * @param array $eInfo
      * @param $obj
-     * @param string $action
+     * @param string $actionId
      * @return bool
      * @throws NotAllowedException
      */
-    public function checkObjectPermission(array $eInfo, $obj, string $action) {
-        if ($action == NULL || !$this->getObjectPermission($eInfo, $obj, $action))
+    public function checkObjectPermission(array $eInfo, $obj, string $actionId) {
+        echo 'checkObjectPermission : ' . $actionId . "<br>";
+        if (!$this->getObjectPermission($eInfo, $obj, $eInfo["methods"][$actionId]))
             throw new NotAllowedException($eInfo);
         return true;
     }
@@ -138,8 +139,8 @@ class EntityManager
      */
     private function setObjectPermissions(array $eInfo, $obj) {
         $permissions = array();
-        foreach (Conf::PERMISSIONS as $p)
-            $permissions[$p] = $this->getObjectPermission($eInfo,$obj, $p);
+        foreach ($eInfo["methods"] as $actionId => $action)
+            $permissions[$actionId] = $this->getObjectPermission($eInfo,$obj, $action);
         return array(
             'permissions' => $permissions,
             'obj' => $obj
@@ -149,17 +150,16 @@ class EntityManager
     /**
      * @param array $eInfo
      * @param $obj
-     * @param string $actionId
+     * @param array $action
      * @return bool
      */
-    private function getObjectPermission(array $eInfo, $obj, string $actionId) {
-        var_dump($eInfo);
+    private function getObjectPermission(array $eInfo, $obj, array $action) {
+        echo 'getObjectPermission : ' . $action["fullName"] . "<br>";
         if ($eInfo["access_details"] == null)
             return true;
-        $accessDetails = $this->getAccessDetailsOfMethod($eInfo["access_details"], $actionId);
-        $action = $eInfo['methods'][$actionId];
-        $check = $this->getObjectCheckPermission($accessDetails, $action, $obj);
-        $roles = $action["roles"] == null || $this->grantedRoles($action["roles"]);
+        $accessDetails = $this->getAccessDetailsOfMethod($eInfo["access_details"], $action["id"]);
+        $check = $accessDetails == null || $this->getObjectCheckPermission($accessDetails, $action, $obj);
+        $roles = $accessDetails["roles"] == null || $this->grantedRoles($accessDetails["roles"]);
         return $check && $roles;
     }
 
@@ -171,27 +171,28 @@ class EntityManager
      * @return bool
      */
     private function getObjectCheckPermission(array $accessDetails, array $action, $obj){
+        echo 'getObjectCheckPermission : ' . $action["fullName"] . "<br>";
         if (($methodName = $accessDetails["check"]) == NULL)
             return true;
         if ($action["isDefault"])
             throw new Exception('Impossible to define a custom check for default method.');
         $service = $this->container->get($action['service']);
-        $methodName = $action['method'];
         $isAuthorise = $service->$methodName($obj);
         if (is_bool($isAuthorise) === false)
-            throw new Exception('check method of access details must return a boolean.');
+            throw new Exception('check method of access details must return a boolean, ' . gettype($isAuthorise) . ' given.');
         return $isAuthorise;
     }
 
     /**
      * Check if current user have access to $entity with entityInfo
      * @param $entity
-     * @param $action
+     * @param $actionId
      * @return bool
      */
-    private function entityAccess($entity, $action = NULL) {
+    private function entityAccess($entity, $actionId = NULL) {
+        echo "entityAccess : " . $actionId . "<br>";
         if ($entity['access_details'] != NULL)
-            return $action != NULL && $this->grantedAccessDetails($entity['access_details'], $action);
+            return $this->grantedAccessDetails($entity['access_details'], $actionId);
         elseif ($entity['access'] != NULL)
             return $this->grantedRoles($entity['access']);
         foreach ($entity['permissions'] as $method => $perm) {
@@ -204,13 +205,19 @@ class EntityManager
     /**
      * Check if current user is granted at least one of roles for $method
      * @param array $accessDetails
-     * @param $method
+     * @param $actionId
      * @return bool
      */
-    private function grantedAccessDetails(array $accessDetails, $method) {
-        if (($action = $this->getAccessDetailsOfMethod($accessDetails, $method)) != null) {
-            if ($action["roles"] != null && $this->grantedRoles($action["roles"]))
+    private function grantedAccessDetails(array $accessDetails, $actionId) {
+        echo 'grantedAccessDetails : ' . $actionId . "<br>";
+        if ($actionId != null && ($action = $this->getAccessDetailsOfMethod($accessDetails, $actionId)) != null) {
+            if ($action["roles"] == null || $this->grantedRoles($action["roles"]))
                 return true;
+        } else {
+            foreach ($accessDetails as $action) {
+                if ($action["roles"] != null && $this->grantedRoles($action["roles"]))
+                    return true;
+            }
         }
         return false;
     }
@@ -235,6 +242,7 @@ class EntityManager
      * @return mixed|null
      */
     private function getAccessDetailsOfMethod(array $accessDetails, $method) {
+        echo 'getAccessDetailsOfMethod : ' . $method . '<br>';
         foreach ($accessDetails as $action) {
             if ($method == $action["method"])
                 return $action;

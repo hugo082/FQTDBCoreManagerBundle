@@ -41,6 +41,7 @@ class FQTDBCoreManagerExtension extends Extension
     {
         foreach ($config['methods']['content'] as $name => $values) {
             $values["isDefault"] = false;
+            $values['id'] = $name;
             if (in_array($name, Conf::DEFAULT_METHODS))
                 throw new \Exception("Impossible to custom method '".$name."'. This is a default method.");
 
@@ -109,7 +110,7 @@ class FQTDBCoreManagerExtension extends Extension
     }
 
     private function checkArrayContentOfKey(array &$array, $key) {
-        if (key_exists($key, $array) && empty($values[$key]))
+        if (key_exists($key, $array) && !empty($array[$key]))
             return true;
         $array[$key] = null;
         return false;
