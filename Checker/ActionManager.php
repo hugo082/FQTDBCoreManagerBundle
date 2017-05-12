@@ -14,6 +14,7 @@
 namespace FQT\DBCoreManagerBundle\Checker;
 
 use Doctrine\ORM\EntityManager as ORMManager;
+use Doctrine\ORM\Mapping\Entity;
 use FQT\DBCoreManagerBundle\Core\Action;
 use FQT\DBCoreManagerBundle\Exception\NotAllowedException;
 use FQT\DBCoreManagerBundle\Exception\NotFoundException;
@@ -92,12 +93,12 @@ class ActionManager
     /**
      * @param Request $request
      * @param Action $action
-     * @param $id
+     * @param null|int $id
      * @return Data
      * @throws \Exception
      */
-    public function processAction(Request $request, Action $action, $id) {
-        $data = $this->defaultAction($request, $action, $this->entityInfo, $id);
+    public function processAction(Request $request, Action $action, int $id = null) {
+        $data = $this->defaultAction($request, $action, $id);
         if ($data == null) {
             $entityObject = $this->entityInfo->getObject($action, $id);
 
@@ -111,12 +112,12 @@ class ActionManager
     }
 
     /**
-     * @param EntityInfo $eInfo
+     * @param Action $action
      * @return Data
      */
-    public function listAction(EntityInfo $eInfo)
+    public function listAction(Action $action)
     {
-        $all = $eInfo->getObjectWithActionID(Conf::DEF_LIST);
+        $all = $this->entityInfo->getObject($action);
         return new Data(array(
             "success" => true,
             "all" => $all)
@@ -125,32 +126,30 @@ class ActionManager
 
     /**
      * @param Request $request
-     * @param $eInfo
-     * @param $id
+     * @param Action $action
+     * @param int $id
      * @return Data
      * @throws NotFoundException
      */
-    public function editAction(Request $request, $eInfo, $id)
+    public function editAction(Request $request, Action $action, int $id)
     {
-        $all = $this->checker->getEntityObject($eInfo);
-        $entityObject = $this->checker->getEntityObject($eInfo, Conf::DEF_EDIT, $id);
+        $entityObject = $this->entityInfo->getObject($action, $id);
         if (!$entityObject)
             throw new NotFoundException($this); // TODO : Not found Object not Entity
-        $process = $this->processForm($request, $eInfo, $entityObject);
+        $process = $this->processForm($request, $entityObject);
         return new Data(array(
             "success" => $process["success"],
+            "redirect" => true,
             "form" => $process["form"]->createView(),
-            "all" => $all,
             "flash" => $process["flash"])
         );
     }
 
     /**
      * @param Request $request
-     * @param Action $action
      * @return Data
      */
-    public function addAction(Request $request, Action $action)
+    public function addAction(Request $request)
     {
         $process = $this->processAddForm($request);
         return new Data(array(
@@ -162,16 +161,15 @@ class ActionManager
     }
 
     /**
-     * @param $eInfo
+     * @param Action $action
      * @param $id
      * @return Data
      */
-    public function removeAction($eInfo, $id)
+    public function removeAction(Action $action, $id)
     {
-        $event = null;
-        $entityObject = $this->checker->getEntityObject($eInfo, Conf::PERM_REMOVE, $id);
+        $entityObject = $this->entityInfo->getObject($action, $id);
         if ($entityObject) {
-            $this->executeAction($eInfo, $entityObject, false);
+            $this->executeAction($entityObject, false);
             $flash = array(array("type" => 'success', "message" => 'Supprimé !'));
         } else
             $flash = array(array("type" => 'error', "message" => 'Not found'));
@@ -199,19 +197,18 @@ class ActionManager
      * Execute action if it's a default
      * @param Request $request
      * @param Action $action
-     * @param $entityInfo
-     * @param $id
+     * @param null|int $id
      * @return Data
      */
-    private function defaultAction(Request $request, Action $action, $entityInfo, $id) {
+    private function defaultAction(Request $request, Action $action, int $id = null) {
         if ($action->id == Conf::DEF_LIST)
-            return $this->listAction($entityInfo);
+            return $this->listAction($action);
         elseif ($action->id == Conf::DEF_ADD)
-            return $this->addAction($request, $action);
+            return $this->addAction($request);
         elseif ($action->id == Conf::PERM_EDIT)
-            return $this->editAction($request, $entityInfo, $id);
+            return $this->editAction($request, $action, $id);
         elseif ($action->id == Conf::DEF_REMOVE)
-            return $this->removeAction($entityInfo, $id);
+            return $this->removeAction($action, $id);
         return null;
     }
 
