@@ -14,12 +14,17 @@
 namespace FQT\DBCoreManagerBundle\Checker;
 
 use Doctrine\ORM\EntityManager as ORMManager;
+use FQT\DBCoreManagerBundle\Core\Action;
+use FQT\DBCoreManagerBundle\Exception\NotAllowedException;
+use FQT\DBCoreManagerBundle\Exception\NotFoundException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface as Dispatcher;
-
 use Symfony\Component\DependencyInjection\ContainerInterface as Container;
 
+use FQT\DBCoreManagerBundle\Core\EntityInfo;
+use FQT\DBCoreManagerBundle\Core\Execution;
+use FQT\DBCoreManagerBundle\Core\Data;
 use FQT\DBCoreManagerBundle\Checker\EntityManager as Checker;
 use FQT\DBCoreManagerBundle\DependencyInjection\Configuration as Conf;
 use FQT\DBCoreManagerBundle\Event\ActionEvent;
@@ -49,6 +54,11 @@ class ActionManager
      */
     private $container;
 
+    /**
+     * @var null|EntityInfo
+     */
+    private $entityInfo = null;
+
     public function __construct(Container $container)
     {
         $this->em = $container->get('doctrine.orm.entity_manager');
@@ -58,36 +68,58 @@ class ActionManager
         $this->container = $container;
     }
 
-    public function customAction(Request $request, $method, $name, $id) {
-
-        $entityInfo = $this->checker->getEntity($name, $method);
-        $action = $entityInfo["methods"][$method];
-
-        $data = $this->defaultAction($request, $method, $entityInfo, $id);
-        if ($data == null) {
-            $entityObject = $this->checker->getEntityObject($entityInfo, $method, $id);
-
-            $service = $this->container->get($action['service']);
-            $methodName = $action['method'];
-            $data = $service->$methodName($entityObject);
-        }
-
-        return array(
-            "entityInfo" => $entityInfo,
-            "data" => $data
-        );
+    public function indexAction() {
+        return $this->checker->getEntities();
     }
 
     /**
-     * @param $eInfo
-     * @return array
+     * @param Request $request
+     * @param $actionID
+     * @param $name
+     * @param $id
+     * @return Execution
+     * @throws NotAllowedException
      */
-    public function listAction($eInfo)
+    public function customAction(Request $request, $actionID, $name, $id) {
+        $this->entityInfo = $this->checker->getEntity($name, $actionID);
+        $action = $this->entityInfo->getActionWithID($actionID, true);
+        if (!$action->isFullAuthorize())
+            throw new NotAllowedException($this->entityInfo);
+        $data = $this->processAction($request, $action, $id);
+        return new Execution($this->entityInfo, $action, $data);
+    }
+
+    /**
+     * @param Request $request
+     * @param Action $action
+     * @param $id
+     * @return Data
+     * @throws \Exception
+     */
+    public function processAction(Request $request, Action $action, $id) {
+        $data = $this->defaultAction($request, $action, $this->entityInfo, $id);
+        if ($data == null) {
+            $entityObject = $this->entityInfo->getObject($action, $id);
+
+            $service = $this->container->get($action->serviceName);
+            $methodName = $action->method;
+            $data = $service->$methodName($entityObject, $request);
+        }
+        if (!$data instanceof Data)
+            throw new \Exception("Data must be an instance of " . Data::class . ", " . gettype($data) . " given.");
+        return $data;
+    }
+
+    /**
+     * @param EntityInfo $eInfo
+     * @return Data
+     */
+    public function listAction(EntityInfo $eInfo)
     {
-        $all = $this->checker->getEntityObject($eInfo);
-        return array(
+        $all = $eInfo->getObjectWithActionID(Conf::DEF_LIST);
+        return new Data(array(
             "success" => true,
-            "all" => $all
+            "all" => $all)
         );
     }
 
@@ -95,52 +127,58 @@ class ActionManager
      * @param Request $request
      * @param $eInfo
      * @param $id
-     * @return array|null
+     * @return Data
+     * @throws NotFoundException
      */
     public function editAction(Request $request, $eInfo, $id)
     {
         $all = $this->checker->getEntityObject($eInfo);
         $entityObject = $this->checker->getEntityObject($eInfo, Conf::DEF_EDIT, $id);
         if (!$entityObject)
-            return null;
+            throw new NotFoundException($this); // TODO : Not found Object not Entity
         $process = $this->processForm($request, $eInfo, $entityObject);
-        return array(
+        return new Data(array(
             "success" => $process["success"],
             "form" => $process["form"]->createView(),
             "all" => $all,
-            "flash" => $process["flash"]
+            "flash" => $process["flash"])
         );
     }
 
     /**
      * @param Request $request
-     * @param $eInfo
-     * @return array
+     * @param Action $action
+     * @return Data
      */
-    public function addAction(Request $request, $eInfo)
+    public function addAction(Request $request, Action $action)
     {
-        $this->checker->checkObjectPermission($eInfo, null, Conf::DEF_ADD);
-        $process = $this->processAddForm($request, $eInfo);
-        return array(
+        $process = $this->processAddForm($request);
+        return new Data(array(
             "success" => $process["success"],
+            "redirect" => $process["success"],
             "form" => $process["form"]->createView(),
-            "flash" => $process["flash"]
+            "flash" => $process["flash"])
         );
     }
 
+    /**
+     * @param $eInfo
+     * @param $id
+     * @return Data
+     */
     public function removeAction($eInfo, $id)
     {
         $event = null;
         $entityObject = $this->checker->getEntityObject($eInfo, Conf::PERM_REMOVE, $id);
         if ($entityObject) {
-            $event = $this->executeAction($eInfo, $entityObject, false);
+            $this->executeAction($eInfo, $entityObject, false);
             $flash = array(array("type" => 'success', "message" => 'Supprimé !'));
         } else
             $flash = array(array("type" => 'error', "message" => 'Not found'));
-        return array(
+        return new Data(array(
             "success" => $entityObject != null,
-            "event" => $event,
-            "flash" => $flash
+            "redirect" => true,
+            "flash" => $flash)
         );
     }
 
@@ -150,45 +188,43 @@ class ActionManager
      * Can be call in listController.
      *
      * @param Request $request
-     * @param array $eInfo
      * @return array
      */
-    public function processAddForm(Request $request, array $eInfo) {
-        $entityObject = new $eInfo['fullPath']();
-        return $this->processForm($request, $eInfo, $entityObject);
+    public function processAddForm(Request $request) {
+        $entityObject = new $this->entityInfo->fullPath();
+        return $this->processForm($request, $entityObject);
     }
 
     /**
      * Execute action if it's a default
      * @param Request $request
-     * @param $method
+     * @param Action $action
      * @param $entityInfo
      * @param $id
-     * @return array|null
+     * @return Data
      */
-    private function defaultAction(Request $request, $method, $entityInfo, $id) {
-        if ($method == Conf::DEF_LIST)
+    private function defaultAction(Request $request, Action $action, $entityInfo, $id) {
+        if ($action->id == Conf::DEF_LIST)
             return $this->listAction($entityInfo);
-        elseif ($method == Conf::DEF_ADD)
-            return $this->addAction($request, $entityInfo);
-        elseif ($method == Conf::PERM_EDIT)
+        elseif ($action->id == Conf::DEF_ADD)
+            return $this->addAction($request, $action);
+        elseif ($action->id == Conf::PERM_EDIT)
             return $this->editAction($request, $entityInfo, $id);
-        elseif ($method == Conf::DEF_REMOVE)
+        elseif ($action->id == Conf::DEF_REMOVE)
             return $this->removeAction($entityInfo, $id);
         return null;
     }
 
     /**
      * @param Request $request
-     * @param array $eInfo
      * @param $entityObject
      * @return array
      */
-    private function processForm(Request $request, array $eInfo, $entityObject){
-        $form = $this->factory->create($eInfo['fullFormType'], $entityObject);
+    private function processForm(Request $request, $entityObject){
+        $form = $this->factory->create($this->entityInfo->fullFormType, $entityObject);
         $form->handleRequest($request);
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->executeAction($eInfo, $entityObject);
+            $this->executeAction($entityObject);
             return array(
                 "success" => true,
                 "form" => $form,
@@ -207,13 +243,12 @@ class ActionManager
     /**
      * Execution action with form information
      *
-     * @param array $eInfo
      * @param $entityObject
      * @param bool $isPersist
      * @return ActionEvent
      */
-    private function executeAction(array $eInfo, $entityObject, $isPersist = true) {
-        $event = new ActionEvent($eInfo, $entityObject, array('success', 'Flash description of action')); // TODO: Dynamic flash msg
+    private function executeAction($entityObject, $isPersist = true) {
+        $event = new ActionEvent($this->entityInfo, $entityObject, array('success', 'Flash description of action')); // TODO: Dynamic flash msg
         $this->dispatcher->dispatch(DBCMEvents::ACTION_ADD_BEFORE, $event); // TODO: Dynamic Event Action
 
         if (!$event->isExecuted()) {

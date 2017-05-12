@@ -9,6 +9,9 @@ use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 use Symfony\Component\DependencyInjection\Loader;
 
 use FQT\DBCoreManagerBundle\DependencyInjection\Configuration as Conf;
+use FQT\DBCoreManagerBundle\Core\Action;
+use FQT\DBCoreManagerBundle\Core\Access;
+use FQT\DBCoreManagerBundle\Core\EntityInfo;
 
 /**
  * This is the class that loads and manages your bundle configuration.
@@ -42,6 +45,7 @@ class FQTDBCoreManagerExtension extends Extension
         foreach ($config['methods']['content'] as $name => $values) {
             $values["isDefault"] = false;
             $values['id'] = $name;
+            $values['access'] = null;
             if (in_array($name, Conf::DEFAULT_METHODS))
                 throw new \Exception("Impossible to custom method '".$name."'. This is a default method.");
 
@@ -79,34 +83,46 @@ class FQTDBCoreManagerExtension extends Extension
 
             $this->checkArrayContentOfKey($values, "access");
 
-            if ($this->checkArrayContentOfKey($values, "access_details"))
-                $this->loadAccessDetails($values['access_details']);
 
             // == TODO: Final definition
             if (isset($values['methods'])) { // TODO: Methods not optionnal
-                $methods = array();
-                foreach ($values['methods'] as $method) {
-                    if (array_key_exists($method, $config['methods']['content']))
-                        $methods[$method] = $config['methods']['content'][$method];
-                    elseif (in_array($method, Conf::DEFAULT_METHODS))
-                        $methods[$method] = Conf::getDefaultMethodInformation($method);
-                    else
-                        throw new \Exception("Method '" . $method . "' doesn't exist in ".$values['fullPath'].".");
-                    $values['permissions'][$method] = true; // TODO: Custom method permissions
-                }
-                $values['methods'] = $methods;
+                $this->loadEntityMethods($values, $config['methods']);
             }
+
+            if ($this->checkArrayContentOfKey($values, "access_details"))
+                $this->processAccessDetails($values);
+
             $config['entities'][$name] = $values;
         }
 
         $container->setParameter($this->getAlias().'.entities', $config['entities']);
     }
 
-    private function loadAccessDetails(array &$accessDetails){
-        foreach ($accessDetails as &$action) {
+    private function loadEntityMethods(array &$values, array $configMethods){
+        $methods = array();
+        foreach ($values['methods'] as $method) {
+            if (array_key_exists($method, $configMethods['content']))
+                $methods[$method] = $configMethods['content'][$method];
+            elseif (in_array($method, Conf::DEFAULT_METHODS))
+                $methods[$method] = Conf::getDefaultMethodInformation($method);
+            else
+                throw new \Exception("Method '" . $method . "' doesn't exist in ".$values['fullPath'].".");
+            $values['permissions'][$method] = true; // TODO: Custom method permissions
+        }
+        $values['methods'] = $methods;
+    }
+
+    private function processAccessDetails(array &$values){
+        foreach ($values['access_details'] as &$action) {
             $this->checkArrayContentOfKey($action, "check");
             $this->checkArrayContentOfKey($action, "roles");
+            $methodID = $action['method'];
+            if (key_exists($methodID, $values['methods']))
+                $values['methods'][$methodID]['access'] = $action;
+            else
+                throw new \Exception("Impossible to details access of undefined method : " . $methodID . " in " . $values['fullPath'] . ".");
         }
+        unset($values['access_details']);
     }
 
     private function checkArrayContentOfKey(array &$array, $key) {

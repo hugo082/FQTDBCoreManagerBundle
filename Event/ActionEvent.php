@@ -15,10 +15,12 @@ namespace FQT\DBCoreManagerBundle\Event;
 
 use Symfony\Component\EventDispatcher\Event;
 
+use FQT\DBCoreManagerBundle\Core\EntityInfo;
+
 class ActionEvent extends Event
 {
     /**
-     * @var array
+     * @var EntityInfo
      */
     private $eInfo = NULL;
 
@@ -37,7 +39,7 @@ class ActionEvent extends Event
      */
     private $flash = array('title', 'message');
 
-    public function __construct(array $eInfo, $obj, array $flash = NULL)
+    public function __construct(EntityInfo $eInfo, $obj, array $flash = NULL)
     {
         $this->eInfo = $eInfo;
         $this->obj = $obj;
