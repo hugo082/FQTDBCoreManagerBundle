@@ -194,8 +194,8 @@ class EntityInfo
         foreach ($this->actions as $action) {
             $action->object = $obj;
             if ($action == $currentAction)
-                $currentPerm = $action->isCheckAuthorize(true);
-            $permissions[$action->id] = $action->environment == Conf::ENV_OBJECT && $action->isCheckAuthorize(true);
+                $currentPerm = $action->isFullAuthorize(true);
+            $permissions[$action->id] = $action->environment == Conf::ENV_OBJECT && $action->isFullAuthorize(true);
         }
         return array(
             'current' => $currentPerm,

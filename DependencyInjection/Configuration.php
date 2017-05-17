@@ -67,8 +67,8 @@ class Configuration implements ConfigurationInterface
     {
         $node
             ->children()
-                ->arrayNode('methods')
-                    ->canBeUnset()
+                ->arrayNode('methods')->isRequired()->cannotBeEmpty()
+                    //->canBeUnset()
                     ->children()
                         ->scalarNode('service')->isRequired()->cannotBeEmpty()->end()
                         ->arrayNode('content')

@@ -139,7 +139,7 @@ class ActionManager
         $process = $this->processForm($request, $entityObject);
         return new Data(array(
             "success" => $process["success"],
-            "redirect" => true,
+            "redirect" => $process["success"],
             "form" => $process["form"]->createView(),
             "flash" => $process["flash"])
         );
