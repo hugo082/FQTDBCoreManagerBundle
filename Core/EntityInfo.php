@@ -162,7 +162,8 @@ class EntityInfo
      * @throws NotAllowedException
      */
     public function getObject(Action $action, int $id = null) {
-        $repo = $this->em->getRepository($this->bundle.':'.$this->name);
+        $bundle = str_replace(array("\\", "/"), "", $this->bundle);
+        $repo = $this->em->getRepository($bundle.':'.$this->name);
         if ($id) {
             $action->object = $repo->find($id);
             $this->checkPermissionForAction($action, true, true);
