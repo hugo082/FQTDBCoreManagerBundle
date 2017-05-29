@@ -26,19 +26,26 @@ abstract class BaseManager implements ListingEntityInterface
     private $bloquedMethods = array('getVars', 'getProperties');
 
     /**
-     * @return All properties values
+     * All properties values
+     * @return array
      */
     public function getVars(){
         return $this->getProp(true);
     }
 
     /**
-     * @return All properties names
+     * All properties name
+     * @return array
      */
     public function getProperties(){
         return $this->getProp(false);
     }
 
+    /**
+     * List all properties and return values if $execute, name else.
+     * @param bool $execute
+     * @return array
+     */
     private function getProp(bool $execute) {
         $reflect = new \ReflectionClass($this);
         $methods = $reflect->getMethods(\ReflectionProperty::IS_PUBLIC);
@@ -48,17 +55,32 @@ abstract class BaseManager implements ListingEntityInterface
             $metName = $met->getName();
             if (0 === strpos($metName, 'get') && !in_array($metName, $this->bloquedMethods)) {
                 if ($execute) {
-                    $item = $this->$metName();
-                    if (!is_array($item) && (!is_object($item) && settype($item, 'string') !== false ) || is_object($item) && method_exists($item, '__toString'))
-                        $tmp[] = $item;
-                    else
-                        $tmp[] = "Unknown";
+                    $tmp[] = $this->getString($this->$metName());
                 }
                 else
                     $tmp[] = str_replace('get', '', $metName);
             }
         }
         return $tmp;
+    }
+
+    /**
+     * Get string representation of $item
+     * @param $item
+     * @return string
+     */
+    private function getString($item): string {
+        if ($item === null)
+            return "null";
+        if (!is_object($item) && settype($item, 'string') !== false)
+            return $item;
+        if (is_object($item) && method_exists($item, '__toString'))
+            return $item;
+        if (is_array($item))
+            return count($item);
+        if ($item instanceof \DateTime)
+            return $item->format("d/m/y H:i");
+        return "Unknown";
     }
 }
 
