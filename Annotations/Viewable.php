@@ -32,6 +32,9 @@ class Viewable
      */
     private $title;
 
+    /**
+     * @var string
+     */
     private $value;
 
     public function __construct(array $container)
@@ -77,7 +80,26 @@ class Viewable
      */
     public function setValue($value)
     {
-        $this->value = $value;
+        $this->value = $this->getString($value);
+    }
+
+    /**
+     * Convert value to string
+     * @param $item
+     * @return string
+     */
+    private function getString($item): string {
+        if ($item === null)
+            return "null";
+        if (!is_object($item) && settype($item, 'string') !== false)
+            return $item;
+        if (is_object($item) && method_exists($item, '__toString'))
+            return $item;
+        if (is_array($item))
+            return count($item);
+        if ($item instanceof \DateTime)
+            return $item->format("d/m/y H:i");
+        return "Unknown";
     }
 
     /**
