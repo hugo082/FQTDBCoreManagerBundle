@@ -14,6 +14,8 @@
 namespace FQT\DBCoreManagerBundle\Core;
 
 use Doctrine\ORM\EntityManager as ORMManager;
+use FQT\DBCoreManagerBundle\Annotations\AnnotationsContainer;
+use FQT\DBCoreManagerBundle\Annotations\Viewable;
 use Symfony\Component\DependencyInjection\ContainerInterface as Container;
 
 use FQT\DBCoreManagerBundle\Core\Action;
@@ -24,12 +26,19 @@ use Symfony\Component\Config\Definition\Exception\Exception;
 use FQT\DBCoreManagerBundle\Exception\NotFoundException;
 use FQT\DBCoreManagerBundle\Exception\NotAllowedException;
 
+use Doctrine\Common\Annotations\AnnotationReader;
+
 class EntityInfo
 {
     /**
      * @var ORMManager
      */
     private $em;
+
+    /**
+     * @var array
+     */
+    private $_annotations;
 
 
     /**
@@ -201,8 +210,59 @@ class EntityInfo
         return array(
             'current' => $currentPerm,
             'permissions' => $permissions,
-            'obj' => $obj
+            'annotation_container' => $this->loadAnnotationsContainer($obj)
         );
+    }
+
+    private function loadAnnotationsContainer($object) {
+        if ($this->_annotations == null)
+            $this->_annotations = $this->loadAnnotations($object);
+        $container = new AnnotationsContainer($object->getId());
+        /**
+         * @var string $key
+         * @var Viewable $annotation
+         */
+        foreach ($this->_annotations as $key => $annotation) {
+            $a = Viewable::fromViewable($annotation);
+            $mName = $annotation->getMethodName();
+            $a->setValue($object->$mName());
+            $container->pushAnnotation($a);
+        }
+        $container->sort();
+        return $container;
+    }
+
+    /**
+     * @param object $object
+     * @return array
+     */
+    private function loadAnnotations($object) {
+        $annotationReader = new AnnotationReader();
+        $reflect = new \ReflectionClass($object);
+        $methods = $reflect->getMethods(\ReflectionProperty::IS_PUBLIC);
+
+        $tmp = array();
+        foreach ($methods as $method) {
+            $reflectionMethod = new \ReflectionMethod(get_class($object), $method->getName());
+            $viewable = $this->getViewable($annotationReader->getMethodAnnotations($reflectionMethod));
+            if ($viewable) {
+                $viewable->setMethodName($method->getName());
+                $tmp[] = $viewable;
+            }
+        }
+        return $tmp;
+    }
+
+    /**
+     * @param array $annotations
+     * @return Viewable|null
+     */
+    private function getViewable(array $annotations) {
+        foreach ($annotations as $annotation) {
+            if ($annotation instanceof Viewable)
+                return $annotation;
+        }
+        return null;
     }
 
     /**
