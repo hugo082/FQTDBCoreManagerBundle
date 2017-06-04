@@ -99,6 +99,22 @@ By default, DBCM load your entity in `YourBundle\Entity\RealName`, name the form
     - `edit`
     - `remove`
 
+To list your entity with action `list` you must add an annotation at the method that you want display.
+
+    use FQT\DbCoreManagerBundle\Annotations\Viewable;
+    class Airport
+    {
+        /**
+         * @Viewable(title="Date", index=1)
+         */
+        public function getDate()
+        {
+            //...
+        }
+    }
+
+You can sort property what you want to display with `index` attribute.
+
 ### Entity access
 
 #### Role access
