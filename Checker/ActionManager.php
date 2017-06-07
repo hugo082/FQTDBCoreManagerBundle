@@ -100,11 +100,11 @@ class ActionManager
     public function processAction(Request $request, Action $action, int $id = null) {
         $data = $this->defaultAction($request, $action, $id);
         if ($data == null) {
-            $entityObject = $this->entityInfo->getObject($action, $id);
+            $this->entityInfo->getObjectAnnotations($action, $id);
 
             $service = $this->container->get($action->serviceName);
             $methodName = $action->method;
-            $data = $service->$methodName($entityObject, $request);
+            $data = $service->$methodName($action->object, $request);
         }
         if (!$data instanceof Data)
             throw new \Exception("Data must be an instance of " . Data::class . ", " . gettype($data) . " given.");
@@ -113,11 +113,15 @@ class ActionManager
 
     /**
      * @param Action $action
+     * @param int|null $id
      * @return Data
      */
-    public function listAction(Action $action)
+    public function listAction(Action $action, int $id = null)
     {
-        $all = $this->entityInfo->getObject($action);
+        $id = ($id != null && $id >= 0) ? $id : null;
+        $all = $this->entityInfo->getObjectAnnotations($action, $id);
+        if (!key_exists(0, $all))
+            $all = array($all);
         return new Data(array(
             "success" => true,
             "all" => $all)
@@ -133,10 +137,10 @@ class ActionManager
      */
     public function editAction(Request $request, Action $action, int $id)
     {
-        $entityObject = $this->entityInfo->getObject($action, $id);
-        if (!$entityObject)
+        $this->entityInfo->getObjectAnnotations($action, $id);
+        if (!$action->object)
             throw new NotFoundException($this); // TODO : Not found Object not Entity
-        $process = $this->processForm($request, $entityObject);
+        $process = $this->processForm($request, $action->object);
         return new Data(array(
             "success" => $process["success"],
             "redirect" => $process["success"],
@@ -167,14 +171,14 @@ class ActionManager
      */
     public function removeAction(Action $action, $id)
     {
-        $entityObject = $this->entityInfo->getObject($action, $id);
-        if ($entityObject) {
-            $this->executeAction($entityObject, false);
+        $this->entityInfo->getObjectAnnotations($action, $id);
+        if ($action->object) {
+            $this->executeAction($action->object, false);
             $flash = array(array("type" => 'success', "message" => 'Supprimé !'));
         } else
             $flash = array(array("type" => 'error', "message" => 'Not found'));
         return new Data(array(
-            "success" => $entityObject != null,
+            "success" => $action->object != null,
             "redirect" => true,
             "flash" => $flash)
         );
@@ -202,7 +206,7 @@ class ActionManager
      */
     private function defaultAction(Request $request, Action $action, int $id = null) {
         if ($action->id == Conf::DEF_LIST)
-            return $this->listAction($action);
+            return $this->listAction($action, $id);
         elseif ($action->id == Conf::DEF_ADD)
             return $this->addAction($request);
         elseif ($action->id == Conf::PERM_EDIT)

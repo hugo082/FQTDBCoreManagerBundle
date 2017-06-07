@@ -20,12 +20,8 @@ use FQT\DBCoreManagerBundle\Core\Model\iEncodable;
 use FQT\DBRestManagerBundle\Manager\RestManager;
 use Symfony\Component\DependencyInjection\ContainerInterface as Container;
 
-use FQT\DBCoreManagerBundle\Core\Action;
 use FQT\DBCoreManagerBundle\DependencyInjection\Configuration as Conf;
 
-use MongoDB\Driver\Exception\ExecutionTimeoutException;
-use Symfony\Component\Config\Definition\Exception\Exception;
-use FQT\DBCoreManagerBundle\Exception\NotFoundException;
 use FQT\DBCoreManagerBundle\Exception\NotAllowedException;
 
 use Doctrine\Common\Annotations\AnnotationReader;
@@ -92,7 +88,7 @@ class EntityInfo implements iEncodable
      */
     public $permissions;
 
-    public function __construct(array $data, $container)
+    public function __construct(array $data, Container $container)
     {
         $this->em = $container->get('doctrine.orm.entity_manager');
 
@@ -133,6 +129,7 @@ class EntityInfo implements iEncodable
             if ($action->computePermissions())
                 return true;
         }
+        return false;
     }
 
     /**
@@ -166,27 +163,28 @@ class EntityInfo implements iEncodable
      * @return array|object
      * @throws \Exception|NotAllowedException
      */
-    public function getObjectWithActionID(string $actionID, int $id = null) {
+    public function getObjectAnnotationsWithActionID(string $actionID, int $id = null) {
         $action = $this->getActionWithID($actionID);
         if ($action == null)
             throw new \Exception("Impossible to check permission for action '" . $actionID . "'. Action not found.");
-        return $this->getObject($action, $id);
+        return $this->getObjectAnnotations($action, $id);
     }
 
     /**
-     * Return entity or entities and check his permissions with action $action
+     * Return entity/ies annotations and check his permissions with action $action
+     * Set entity object in $action
      * @param Action $action
      * @param int|null $id
      * @return array|object
      * @throws NotAllowedException
      */
-    public function getObject(Action $action, int $id = null) {
+    public function getObjectAnnotations(Action $action, int $id = null) {
         $bundle = str_replace(array("\\", "/"), "", $this->bundle);
         $repo = $this->em->getRepository($bundle.':'.$this->name);
         if ($id) {
             $action->object = $repo->find($id);
             $this->checkPermissionForAction($action, true, true);
-            return $action->object;
+            return $this->computePermissionsForObject($action->object, $action);
         } elseif ($this->listingMethod != null) {
             $name = $this->listingMethod;
             $all = $repo->$name();
