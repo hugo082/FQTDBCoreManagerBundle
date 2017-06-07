@@ -144,7 +144,7 @@ class ActionManager
         return new Data(array(
             "success" => $process["success"],
             "redirect" => $process["success"],
-            "form" => $process["form"]->createView(),
+            "form" => $process["form"],
             "flash" => $process["flash"])
         );
     }
@@ -159,7 +159,7 @@ class ActionManager
         return new Data(array(
             "success" => $process["success"],
             "redirect" => $process["success"],
-            "form" => $process["form"]->createView(),
+            "form" => $process["form"],
             "flash" => $process["flash"])
         );
     }
@@ -228,15 +228,28 @@ class ActionManager
             $this->executeAction($entityObject);
             return array(
                 "success" => true,
-                "form" => $form,
+                "form" => $form->createView(),
                 "flash" => array(
                     array("type" => 'success', "message" => 'Modification enregistré')
                 )
             );
+        } else {
+            $data = json_decode($request->getContent(), true);
+            if ($data != null) {
+                $form->submit($data);
+                $this->executeAction($entityObject);
+                return array(
+                    "success" => true,
+                    "form" => null,
+                    "flash" => array(
+                        array("type" => 'success', "message" => 'Modification enregistré')
+                    )
+                );
+            }
         }
         return array(
             "success" => false,
-            "form" => $form,
+            "form" => $form->createView(),
             "flash" => array()
         );
     }
