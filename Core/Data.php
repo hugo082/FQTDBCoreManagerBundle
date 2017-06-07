@@ -13,6 +13,8 @@
 
 namespace FQT\DBCoreManagerBundle\Core;
 
+use FQT\DBCoreManagerBundle\Core\Model\iEncodable;
+use FQT\DBRestManagerBundle\Manager\RestManager;
 use Symfony\Component\DependencyInjection\ContainerInterface as Container;
 use Symfony\Component\Security\Core\Authorization\AuthorizationChecker;
 
@@ -22,7 +24,7 @@ use Symfony\Component\Config\Definition\Exception\Exception;
 use FQT\DBCoreManagerBundle\Exception\NotFoundException;
 use FQT\DBCoreManagerBundle\Exception\NotAllowedException;
 
-class Data
+class Data implements iEncodable
 {
     /**
      * @var array
@@ -36,6 +38,15 @@ class Data
 
     public function __construct(array $data) {
         $this->data = $data;
+    }
+
+    public function encode(string $entityName = ""): array
+    {
+        return array(
+            "redirection" => $this->getRedirection($entityName),
+            "flash" => $this->getFlash(),
+            "data" => RestManager::Encode($this->data)
+        );
     }
 
     public function getFlash() {

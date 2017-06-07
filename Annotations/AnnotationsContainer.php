@@ -14,7 +14,10 @@
 namespace FQT\DBCoreManagerBundle\Annotations;
 
 
-class AnnotationsContainer
+use FQT\DBCoreManagerBundle\Core\Model\iEncodable;
+use FQT\DBRestManagerBundle\Manager\RestManager;
+
+class AnnotationsContainer implements iEncodable
 {
     private $object_id;
     /**
@@ -26,6 +29,14 @@ class AnnotationsContainer
     {
         $this->annotations = array();
         $this->object_id = $object_id;
+    }
+
+    public function encode(): array
+    {
+        return array(
+            "id" => $this->object_id,
+            "annotations" => RestManager::Encode($this->annotations)
+        );
     }
 
     /**

@@ -15,9 +15,10 @@ namespace FQT\DBCoreManagerBundle\Core;
 
 use FQT\DBCoreManagerBundle\Core\EntityInfo;
 use FQT\DBCoreManagerBundle\Core\Action;
+use FQT\DBCoreManagerBundle\Core\Model\iEncodable;
 
 
-class Execution
+class Execution implements iEncodable
 {
     /**
      * @var EntityInfo
@@ -39,5 +40,14 @@ class Execution
         $this->entityInfo = $entityInfo;
         $this->action = $action;
         $this->data = $data;
+    }
+
+    public function encode(): array
+    {
+        return array(
+            "entityInfo" => $this->entityInfo->encode(),
+            "action" => $this->action->encode(),
+            "data" => $this->data->encode($this->entityInfo->name)
+        );
     }
 }

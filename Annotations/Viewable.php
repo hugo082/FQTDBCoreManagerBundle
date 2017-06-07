@@ -13,11 +13,12 @@
 
 namespace FQT\DBCoreManagerBundle\Annotations;
 
+use FQT\DBCoreManagerBundle\Core\Model\iEncodable;
 
 /**
  * @Annotation
  */
-class Viewable
+class Viewable implements iEncodable
 {
     /**
      * @var int
@@ -41,6 +42,15 @@ class Viewable
     {
         $this->title = $this->getKeySecure("title", $container);
         $this->index = $this->getKeySecure("index", $container);
+    }
+
+    public function encode(): array
+    {
+        return array(
+            "index" => $this->index,
+            "title" => $this->title,
+            "value" => $this->value
+        );
     }
 
     /**

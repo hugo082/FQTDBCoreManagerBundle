@@ -16,6 +16,8 @@ namespace FQT\DBCoreManagerBundle\Core;
 use Doctrine\ORM\EntityManager as ORMManager;
 use FQT\DBCoreManagerBundle\Annotations\AnnotationsContainer;
 use FQT\DBCoreManagerBundle\Annotations\Viewable;
+use FQT\DBCoreManagerBundle\Core\Model\iEncodable;
+use FQT\DBRestManagerBundle\Manager\RestManager;
 use Symfony\Component\DependencyInjection\ContainerInterface as Container;
 
 use FQT\DBCoreManagerBundle\Core\Action;
@@ -28,7 +30,7 @@ use FQT\DBCoreManagerBundle\Exception\NotAllowedException;
 
 use Doctrine\Common\Annotations\AnnotationReader;
 
-class EntityInfo
+class EntityInfo implements iEncodable
 {
     /**
      * @var ORMManager
@@ -107,6 +109,14 @@ class EntityInfo
         foreach ($data['methods'] as $actionID => $action)
             $this->actions[$actionID] = new Action($action, $container);
 
+    }
+
+    public function encode(): array {
+        return array(
+            "name" => $this->name,
+            "fullName" => $this->fullName,
+            "actions" => RestManager::Encode($this->actions)
+        );
     }
 
     public function computePermissions(){

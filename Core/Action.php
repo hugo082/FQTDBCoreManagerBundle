@@ -13,11 +13,12 @@
 
 namespace FQT\DBCoreManagerBundle\Core;
 
+use FQT\DBCoreManagerBundle\Core\Model\iEncodable;
 use Symfony\Component\DependencyInjection\ContainerInterface as Container;
 
 use FQT\DBCoreManagerBundle\Core\Access;
 
-class Action
+class Action implements iEncodable
 {
 
     /**
@@ -70,6 +71,14 @@ class Action
             $this->serviceName = $data['service'];
 
         $this->access = new Access($this, $container, $data['access']);
+    }
+
+    public function encode(): array
+    {
+        return array(
+            "id" => $this->id,
+            "fullName" => $this->fullName
+        );
     }
 
     public function computePermissions() {
