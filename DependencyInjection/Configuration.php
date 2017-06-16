@@ -104,7 +104,7 @@ class Configuration implements ConfigurationInterface
                             ->scalarNode('fullName')->isRequired()->cannotBeEmpty()
                                 ->validate()
                                 ->ifTrue(function ($s) {
-                                    return preg_match('/^[a-zA-Z]+([\\\\][a-zA-Z]+)*Bundle:[a-zA-Z]+$/', $s) !== 1;
+                                    return preg_match('/^[a-zA-Z]+([\\\\][a-zA-Z]+)*Bundle:[a-zA-Z]+([\\\\][a-zA-Z]+)*$/', $s) !== 1;
                                 })
                                 ->thenInvalid('Invalid fullName. (Ex: AppBundle:RealName)')
                                 ->end()
