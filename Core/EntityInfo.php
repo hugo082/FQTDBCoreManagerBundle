@@ -42,6 +42,14 @@ class EntityInfo implements iEncodable
     /**
      * @var string
      */
+    public $id;
+    /**
+     * @var string
+     */
+    public $title;
+    /**
+     * @var string
+     */
     public $fullName;
     /**
      * @var string
@@ -92,6 +100,8 @@ class EntityInfo implements iEncodable
     {
         $this->em = $container->get('doctrine.orm.entity_manager');
 
+        $this->id = $data['id'];
+        $this->title = $data['title'];
         $this->name = $data['name'];
         $this->bundle = $data['bundle'];
         $this->fullName = $data['fullName'];
@@ -295,5 +305,21 @@ class EntityInfo implements iEncodable
         if (key_exists($key, $array))
             return $array[$key];
         return null;
+    }
+
+    /**
+     * @return string
+     */
+    public function getTitle(): string
+    {
+        return $this->title;
+    }
+
+    /**
+     * @return string
+     */
+    public function getId(): string
+    {
+        return $this->id;
     }
 }

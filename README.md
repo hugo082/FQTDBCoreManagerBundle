@@ -78,13 +78,15 @@ DBCM load your entities with your configuration file. You can specify an entity 
 
     fqtdb_core_manager:
         entities:
-            DisplayName:
+            idInUrl:
+                title: TitleDisplayIntemplate
                 fullName: YourBundle:RealName
                 methods: [ list, add, edit, remove ]
 
 You can configure different actions on each entity :
 
-     DisplayName:
+     id:
+        title: MyEntity
         fullName: YourBundle:RealName
         methods: [ action1, action2 ]
         formType: MyCustomFormType                          # Optional
@@ -122,20 +124,20 @@ You can sort property what you want to display with `index` attribute.
 You can setup, for each entity, roles that are necessary to execute specific action or access to a specific information.<br>
 For example, if you want that the entity is accessible only to admin users, you can specify the `access` config
 
-    DisplayName:
+    id:
         access: ROLE_ADMIN
         #...
 
 You can also defined multi-roles :
 
-    DisplayName:
+    id:
         access: [ ROLE_ADMIN, ROLE_REDACTOR ]
         #...
 
 If you want that users can list and so access to entity information but admins can execute actions on this entity, you
 you can defined the parameter `access_details`. This parameter **must** defined roles for all actions :
 
-    DisplayName:
+    id:
         #...
         access_details:
             - { method: list, roles: [ ROLE_REDACTOR, ROLE_ADMIN ]}
@@ -160,7 +162,8 @@ This method is call on the service specified of your custom action (more informa
 When DBM list your entity, you can also choose your method repository. By default, DBManager use `findAll()` but you can 
 override this easily :
 
-    Flight:
+    flight:
+        title: Flight
         fullName: AppBundle:Flight
         listingMethod: myRepositoryMethod
 

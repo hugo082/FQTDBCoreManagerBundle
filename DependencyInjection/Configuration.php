@@ -101,6 +101,7 @@ class Configuration implements ConfigurationInterface
                 ->arrayNode('entities')
                     ->prototype('array')->addDefaultsIfNotSet()
                         ->children()
+                            ->scalarNode('title')->isRequired()->cannotBeEmpty()->end()
                             ->scalarNode('fullName')->isRequired()->cannotBeEmpty()
                                 ->validate()
                                 ->ifTrue(function ($s) {

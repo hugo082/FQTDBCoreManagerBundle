@@ -65,12 +65,13 @@ class FQTDBCoreManagerExtension extends Extension
      * @param ContainerBuilder $container
      * @throws \Exception
      */
-    private function loadEntities(array $config, ContainerBuilder $container)
+    private function loadEntities(array &$config, ContainerBuilder $container)
     {
-        foreach ($config['entities'] as $name => $values) {
+        foreach ($config['entities'] as $name => &$values) {
             $arr = explode(":", $values['fullName'], 2);
             $values['bundle'] = $arr[0];
             $values['name'] = $arr[1];
+            $values['id'] = $name;
 
             if (!isset($values['fullPath']))
                 $values['fullPath'] = $values['bundle']."\\Entity\\".$values['name'];
@@ -91,8 +92,6 @@ class FQTDBCoreManagerExtension extends Extension
 
             if ($this->checkArrayContentOfKey($values, "access_details"))
                 $this->processAccessDetails($values);
-
-            $config['entities'][$name] = $values;
         }
 
         $container->setParameter($this->getAlias().'.entities', $config['entities']);
