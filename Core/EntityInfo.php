@@ -233,6 +233,8 @@ class EntityInfo implements iEncodable
     }
 
     private function loadAnnotationsContainer($object) {
+        if ($object == null)
+            return null;
         if ($this->_annotations == null)
             $this->_annotations = $this->loadAnnotations($object);
         $container = new AnnotationsContainer($object->getId());

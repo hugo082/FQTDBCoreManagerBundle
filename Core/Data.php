@@ -55,19 +55,19 @@ class Data implements iEncodable
         return array();
     }
 
-    public function getRedirection(string $entityName, bool $force = false) {
+    public function getRedirection(string $entityID, bool $force = false) {
         if ($this->redirection == null || $force)
-            $this->redirection = $this->computeRedirection($entityName);
+            $this->redirection = $this->computeRedirection($entityID);
         return $this->redirection;
     }
 
     /**
      * Get the redirection information of data $data. null is no redirection.
-     * @param string $entityName
+     * @param string $entityID
      * @return array|mixed|null
      * @throws \Exception
      */
-    private function computeRedirection(string $entityName) {
+    private function computeRedirection(string $entityID) {
         if (!key_exists("redirect", $this->data))
             return null;
         $red = $this->data["redirect"];
@@ -75,7 +75,7 @@ class Data implements iEncodable
             return $red;
         if (is_bool($red)) {
             if ($red)
-                return array("route_name" => 'db.manager.list', "data" => array('name' => $entityName));
+                return array("route_name" => 'db.manager.list', "data" => array('name' => $entityID));
             return null;
         }
         throw new \Exception("Redirection found it's invalid. 'redirect' must be an array or boolean,  " . gettype($red) . " given.");
